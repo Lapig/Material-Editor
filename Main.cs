@@ -1574,5 +1574,103 @@ namespace Material_Editor
             }
         }
         #endregion
+
+
+        private void convertMaterialByFilename(String fname)
+        {
+            OpenMaterial(fname, BGSM.Signature);
+            BaseMaterialFile material;
+            if (fname.ToLower().EndsWith(".bgsm"))
+                material = new BGSM();
+            else
+                return;
+
+
+
+            GetMaterialValues(material);
+            BGSM bgsm = (BGSM)material;
+
+            bgsm.TwoSided = false;
+            bgsm.AlphaTest = true;
+            bgsm.TranslucencyMixAlbedoWithSubsurfaceColor = true;
+            bgsm.PBR = true;
+            bgsm.SmoothSpecTexture = "";
+
+           
+            bgsm.SpecularTexture = "clothes/base/BaseR.dds";
+            bgsm.LightingTexture = "clothes/base/BaseL.dds";
+
+            try
+            {
+                using (var file = new FileStream(fname, FileMode.Create))
+                {
+                    if (serializeToJSONToolStripMenuItem.Checked)
+                    {
+                        var currentCulture = Thread.CurrentThread.CurrentCulture;
+                        Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+
+                        try
+                        {
+                            using (var writer = JsonReaderWriterFactory.CreateJsonWriter(file, Encoding.UTF8, true, true, "  "))
+                            {
+                                var ser = new DataContractJsonSerializer(bgsm.GetType(), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
+                                ser.WriteObject(writer, bgsm);
+                                writer.Flush();
+                            }
+                        }
+                        catch
+                        {
+                            MessageBox.Show(string.Format("Failed to serialize to JSON data for file '{0}'!", fname), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        finally
+                        {
+                            Thread.CurrentThread.CurrentCulture = currentCulture;
+                        }
+                    }
+                    else
+                    {
+                        if (!bgsm.Save(file))
+                        {
+                            MessageBox.Show(string.Format("Failed to save file '{0}'!", fname), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                MessageBox.Show(string.Format("Failed to save file '{0}'!", fname), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+        }
+
+        private void cONVERTTo76ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string fileName = workFileName;
+
+            convertMaterialByFilename(fileName);
+        }
+
+
+        private void cONVERTMANYTo76ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var fileContent = string.Empty;
+            var filePath = string.Empty;
+
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Multiselect = true;
+                openFileDialog.Filter = "Materials (*.bgsm)|*.bgsm|All files (*.*)|*.*";
+                openFileDialog.FilterIndex = 2;
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    foreach (String file in openFileDialog.FileNames)
+                    {
+                        convertMaterialByFilename(file);
+                    }
+                }
+            }
+        }
     }
 }
